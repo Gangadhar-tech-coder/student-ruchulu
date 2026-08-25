@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api` : '/api';
+const rawBase = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = rawBase ? `${rawBase.replace(/\/$/, '')}/api` : '/api';
 
 export async function fetchProducts(params = {}) {
   const query = new URLSearchParams(params).toString();
