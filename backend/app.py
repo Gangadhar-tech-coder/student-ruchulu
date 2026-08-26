@@ -1,5 +1,5 @@
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request
 from flask_cors import CORS
 from config import Config
 from models import init_db
@@ -14,6 +14,15 @@ def create_app():
 
     # Enable CORS for React frontend
     CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
+
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            return response
 
     @app.after_request
     def add_cors_headers(response):

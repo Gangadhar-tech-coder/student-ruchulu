@@ -32,19 +32,22 @@ def send_otp():
         )
         conn.commit()
 
-        # Send via email if identifier contains '@'
+        # Send via email asynchronously if identifier contains '@'
         email_sent = False
         if "@" in identifier:
-            try:
-                mail_config = {
-                    "MAIL_SERVER": current_app.config.get("MAIL_SERVER", "smtp.gmail.com"),
-                    "MAIL_PORT": current_app.config.get("MAIL_PORT", 587),
-                    "MAIL_USERNAME": current_app.config.get("MAIL_USERNAME", ""),
-                    "MAIL_PASSWORD": current_app.config.get("MAIL_PASSWORD", ""),
-                }
-                email_sent = send_otp_email(identifier, otp, mail_config)
-            except Exception as mail_err:
-                print(f"Email send exception: {mail_err}")
+            mail_config = {
+                "MAIL_SERVER": current_app.config.get("MAIL_SERVER", "smtp.gmail.com"),
+                "MAIL_PORT": current_app.config.get("MAIL_PORT", 587),
+                "MAIL_USERNAME": current_app.config.get("MAIL_USERNAME", ""),
+                "MAIL_PASSWORD": current_app.config.get("MAIL_PASSWORD", ""),
+            }
+            import threading
+            threading.Thread(
+                target=send_otp_email,
+                args=(identifier, otp, mail_config),
+                daemon=True,
+            ).start()
+            email_sent = True
 
         print(f"OTP for {identifier}: {otp}")
 
