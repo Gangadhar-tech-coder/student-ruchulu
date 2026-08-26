@@ -52,10 +52,9 @@ def send_otp():
         print(f"OTP for {identifier}: {otp}")
 
         return jsonify({
-            "message": f"OTP sent to {identifier}",
+            "message": f"Verification code sent to {identifier}",
             "identifier": identifier,
             "email_sent": email_sent,
-            "dev_otp": otp,
         })
     except Exception as e:
         if conn:

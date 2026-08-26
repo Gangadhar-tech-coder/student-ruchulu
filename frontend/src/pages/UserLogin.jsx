@@ -31,9 +31,6 @@ export default function UserLogin() {
     try {
       const data = await sendOtp(identifier.trim());
       addToast(data.message || 'OTP code sent to your email inbox! 📩', 'success');
-      if (data.dev_otp) {
-        addToast(`🔑 Verification Code: ${data.dev_otp}`, 'info');
-      }
       setStep('otp');
     } catch (err) {
       addToast(err.message || 'Failed to send OTP to email', 'error');
