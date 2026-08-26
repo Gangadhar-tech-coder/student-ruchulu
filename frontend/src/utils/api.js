@@ -143,28 +143,28 @@ export async function deleteProduct(id, token) {
 }
 
 /* User Auth APIs */
-export async function sendOtp(identifier) {
-  const res = await fetch(`${API_BASE}/auth/send-otp`, {
+export async function registerUser(userData) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier }),
+    body: JSON.stringify(userData),
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || 'Failed to send OTP');
+    throw new Error(err.error || 'Registration failed');
   }
   return res.json();
 }
 
-export async function verifyOtp(identifier, otp, name = '') {
-  const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+export async function loginUserWithPassword(credentials) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, otp, name }),
+    body: JSON.stringify(credentials),
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || 'Failed to verify OTP');
+    throw new Error(err.error || 'Login failed');
   }
   return res.json();
 }

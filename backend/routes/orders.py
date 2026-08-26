@@ -52,19 +52,24 @@ def create_order():
         if conn:
             conn.close()
 
-    # Send email notification
+    # Send email notification asynchronously in a background thread
     try:
         from utils.email_service import send_order_notification
         mail_config = {
-            "MAIL_SERVER": current_app.config.get("MAIL_SERVER", ""),
-            "MAIL_PORT": current_app.config.get("MAIL_PORT", 587),
+            "MAIL_SERVER": current_app.config.get("MAIL_SERVER", "smtp.gmail.com"),
+            "MAIL_PORT": current_app.config.get("MAIL_PORT", 465),
             "MAIL_USERNAME": current_app.config.get("MAIL_USERNAME", ""),
             "MAIL_PASSWORD": current_app.config.get("MAIL_PASSWORD", ""),
             "ADMIN_EMAIL": current_app.config.get("ADMIN_EMAIL", ""),
         }
-        send_order_notification(order_dict, mail_config)
+        import threading
+        threading.Thread(
+            target=send_order_notification,
+            args=(order_dict, mail_config),
+            daemon=True,
+        ).start()
     except Exception as e:
-        print(f"Email notification error: {e}")
+        print(f"Email notification dispatch error: {e}")
 
     return jsonify(order_dict), 201
 
@@ -150,19 +155,24 @@ def update_order_status(order_id):
         order = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id,)).fetchone()
         order_dict = dict_from_row(order)
 
-        # Trigger order status email update to the customer
+        # Trigger order status email update to the customer asynchronously
         if new_status:
             try:
                 from utils.email_service import send_order_status_update_email
                 mail_config = {
-                    "MAIL_SERVER": current_app.config.get("MAIL_SERVER", ""),
-                    "MAIL_PORT": current_app.config.get("MAIL_PORT", 587),
+                    "MAIL_SERVER": current_app.config.get("MAIL_SERVER", "smtp.gmail.com"),
+                    "MAIL_PORT": current_app.config.get("MAIL_PORT", 465),
                     "MAIL_USERNAME": current_app.config.get("MAIL_USERNAME", ""),
                     "MAIL_PASSWORD": current_app.config.get("MAIL_PASSWORD", ""),
                 }
-                send_order_status_update_email(order_dict, new_status, mail_config)
+                import threading
+                threading.Thread(
+                    target=send_order_status_update_email,
+                    args=(order_dict, new_status, mail_config),
+                    daemon=True,
+                ).start()
             except Exception as mail_err:
-                print(f"Failed to send status update email: {mail_err}")
+                print(f"Failed to dispatch status update email: {mail_err}")
 
         order_dict["items"] = json.loads(order_dict["items"])
         return jsonify(order_dict)

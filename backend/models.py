@@ -37,19 +37,26 @@ def init_db():
             )
         """)
 
-        # Users table (NULL for non-provided email/phone to allow SQLite UNIQUE constraints)
+        # Users table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT DEFAULT '',
                 email TEXT UNIQUE,
-                phone TEXT UNIQUE,
+                phone TEXT DEFAULT '',
+                password_hash TEXT DEFAULT '',
                 address TEXT DEFAULT '',
                 city TEXT DEFAULT '',
                 pincode TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Migration: ensure password_hash exists if database was created earlier
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT ''")
+        except Exception:
+            pass
 
         # OTPs table
         cursor.execute("""

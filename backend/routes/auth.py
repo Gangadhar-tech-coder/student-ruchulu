@@ -1,6 +1,7 @@
 import random
 import datetime
 import jwt
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, request, jsonify, current_app
 from models import get_db, dict_from_row
 from utils.email_service import send_otp_email
@@ -8,134 +9,52 @@ from utils.email_service import send_otp_email
 auth_bp = Blueprint("auth", __name__)
 
 
-@auth_bp.route("/api/auth/send-otp", methods=["POST"])
-def send_otp():
-    """Generate and send OTP code to mobile number or email."""
+@auth_bp.route("/api/auth/register", methods=["POST"])
+def register():
+    """Register a new customer with email and password."""
     conn = None
     try:
         data = request.get_json(silent=True) or {}
-        identifier = str(data.get("identifier", "")).strip()
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+        name = str(data.get("name", "")).strip()
+        phone = str(data.get("phone", "")).strip()
 
-        if not identifier:
-            return jsonify({"error": "Mobile number or Email is required"}), 400
-
-        # Generate 6-digit OTP
-        otp = str(random.randint(100000, 999999))
-        now = datetime.datetime.now(datetime.timezone.utc)
-        expires_at = now + datetime.timedelta(minutes=10)
+        if not email or "@" not in email:
+            return jsonify({"error": "Valid Email address is required"}), 400
+        if not password or len(password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters long"}), 400
 
         conn = get_db()
-        conn.execute("DELETE FROM otps WHERE identifier = ?", (identifier,))
-        conn.execute(
-            "INSERT INTO otps (identifier, otp, expires_at) VALUES (?, ?, ?)",
-            (identifier, otp, expires_at.isoformat()),
+        existing = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        if existing:
+            return jsonify({"error": "An account with this email address already exists. Please log in."}), 400
+
+        password_hash = generate_password_hash(password)
+        cursor = conn.execute(
+            """INSERT INTO users (name, email, phone, password_hash, address, city, pincode)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                name or email.split("@")[0],
+                email,
+                phone,
+                password_hash,
+                data.get("address", ""),
+                data.get("city", ""),
+                data.get("pincode", ""),
+            ),
         )
         conn.commit()
 
-        # Send via email asynchronously if identifier contains '@'
-        email_sent = False
-        if "@" in identifier:
-            mail_config = {
-                "MAIL_SERVER": current_app.config.get("MAIL_SERVER", "smtp.gmail.com"),
-                "MAIL_PORT": current_app.config.get("MAIL_PORT", 587),
-                "MAIL_USERNAME": current_app.config.get("MAIL_USERNAME", ""),
-                "MAIL_PASSWORD": current_app.config.get("MAIL_PASSWORD", ""),
-            }
-            import threading
-            threading.Thread(
-                target=send_otp_email,
-                args=(identifier, otp, mail_config),
-                daemon=True,
-            ).start()
-            email_sent = True
-
-        print(f"OTP for {identifier}: {otp}")
-
-        return jsonify({
-            "message": f"Verification code sent to {identifier}",
-            "identifier": identifier,
-            "email_sent": email_sent,
-        })
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"Error in send_otp: {e}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
-    finally:
-        if conn:
-            conn.close()
-
-
-@auth_bp.route("/api/auth/verify-otp", methods=["POST"])
-def verify_otp():
-    """Verify OTP and authenticate user."""
-    conn = None
-    try:
-        data = request.get_json(silent=True) or {}
-        identifier = str(data.get("identifier", "")).strip()
-        otp_input = str(data.get("otp", "")).strip()
-        name = str(data.get("name", "")).strip()
-
-        if not identifier or not otp_input:
-            return jsonify({"error": "Identifier and OTP are required"}), 400
-
-        conn = get_db()
-        record = conn.execute(
-            "SELECT * FROM otps WHERE identifier = ? AND otp = ?",
-            (identifier, otp_input),
-        ).fetchone()
-
-        if not record:
-            return jsonify({"error": "Invalid OTP verification code"}), 400
-
-        # Check expiration safely
-        try:
-            exp_str = record["expires_at"]
-            expires = datetime.datetime.fromisoformat(exp_str)
-            if expires.tzinfo is None:
-                expires = expires.replace(tzinfo=datetime.timezone.utc)
-            now = datetime.datetime.now(datetime.timezone.utc)
-            if now > expires:
-                return jsonify({"error": "OTP has expired. Please request a new one."}), 400
-        except Exception as tz_err:
-            print(f"Expiration check warning: {tz_err}")
-
-        # Delete used OTP
-        conn.execute("DELETE FROM otps WHERE identifier = ?", (identifier,))
-
-        # Find or create user
-        is_email = "@" in identifier
-        if is_email:
-            user = conn.execute("SELECT * FROM users WHERE email = ?", (identifier,)).fetchone()
-        else:
-            user = conn.execute("SELECT * FROM users WHERE phone = ?", (identifier,)).fetchone()
-
-        if not user:
-            cursor = conn.execute(
-                """INSERT INTO users (name, email, phone)
-                   VALUES (?, ?, ?)""",
-                (
-                    name or identifier.split("@")[0],
-                    identifier if is_email else None,
-                    identifier if not is_email else None,
-                ),
-            )
-            user_id = cursor.lastrowid
-            user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        else:
-            user_id = user["id"]
-            if name and not user["name"]:
-                conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, user_id))
-
-        conn.commit()
-
+        user_id = cursor.lastrowid
+        user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         user_dict = dict_from_row(user)
+        user_dict.pop("password_hash", None)
 
-        # Issue JWT
         token = jwt.encode(
             {
                 "user_id": user_id,
-                "identifier": identifier,
+                "email": email,
                 "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30),
             },
             current_app.config["SECRET_KEY"],
@@ -143,14 +62,70 @@ def verify_otp():
         )
 
         return jsonify({
+            "message": "Account created successfully!",
+            "token": token,
+            "user": user_dict,
+        }), 201
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error in register: {e}")
+        return jsonify({"error": f"Failed to create account: {str(e)}"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@auth_bp.route("/api/auth/login", methods=["POST"])
+def login_user():
+    """Authenticate customer with email and password."""
+    conn = None
+    try:
+        data = request.get_json(silent=True) or {}
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not email or not password:
+            return jsonify({"error": "Email and Password are required"}), 400
+
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
+        if not user:
+            return jsonify({"error": "Account not found with this email. Please sign up."}), 404
+
+        user_dict = dict_from_row(user)
+        stored_hash = user_dict.get("password_hash", "")
+
+        if stored_hash:
+            if not check_password_hash(stored_hash, password):
+                return jsonify({"error": "Invalid password"}), 401
+        else:
+            # Set password if existing account has no password yet
+            new_hash = generate_password_hash(password)
+            conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
+            conn.commit()
+
+        user_dict.pop("password_hash", None)
+
+        token = jwt.encode(
+            {
+                "user_id": user["id"],
+                "email": email,
+                "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30),
+            },
+            current_app.config["SECRET_KEY"],
+            algorithm="HS256",
+        )
+
+        return jsonify({
+            "message": "Logged in successfully!",
             "token": token,
             "user": user_dict,
         })
     except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"Error in verify_otp: {e}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+        print(f"Error in login: {e}")
+        return jsonify({"error": f"Login failed: {str(e)}"}), 500
     finally:
         if conn:
             conn.close()
@@ -174,7 +149,23 @@ def get_me():
         if not user:
             return jsonify({"error": "User not found"}), 404
 
-        return jsonify(dict_from_row(user))
+        user_dict = dict_from_row(user)
+        user_dict.pop("password_hash", None)
+
+        # Get customer's past orders
+        orders = conn.execute("SELECT * FROM orders WHERE customer_email = ? ORDER BY created_at DESC", (user_dict["email"],)).fetchall()
+        import json
+        order_list = []
+        for o in orders:
+            od = dict_from_row(o)
+            try:
+                od["items"] = json.loads(od["items"])
+            except Exception:
+                pass
+            order_list.append(od)
+
+        user_dict["orders"] = order_list
+        return jsonify(user_dict)
     except Exception as e:
         return jsonify({"error": "Invalid token"}), 401
     finally:
