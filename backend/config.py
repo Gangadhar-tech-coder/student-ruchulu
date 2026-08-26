@@ -10,10 +10,10 @@ class Config:
 
     # Mail configuration
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-    MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
-    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "true").lower() == "true"
+    MAIL_PORT = int(os.getenv("MAIL_PORT", 465))
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "false").lower() == "true"
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "studentruchulu@gmail.com")
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "alvg liwz yjri eihg")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "alvg liwz yjri eihg").replace(" ", "")
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "studentruchulu@gmail.com")
 
     # Razorpay configuration
