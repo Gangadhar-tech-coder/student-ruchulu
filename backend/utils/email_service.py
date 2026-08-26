@@ -13,7 +13,7 @@ def send_email(to_email, subject, html_content, config):
         port = int(config.get("MAIL_PORT", 465))
 
         if not username or not password:
-            print(f"⚠️ Email SMTP username/password not configured. Skipping sending email to {to_email}")
+            print(f"[MAIL] Email SMTP username/password not configured. Skipping sending email to {to_email}")
             return False
 
         msg = MIMEMultipart("alternative")
@@ -27,19 +27,19 @@ def send_email(to_email, subject, html_content, config):
             with smtplib.SMTP_SSL(server_host, 465, timeout=10) as server:
                 server.login(username, password)
                 server.send_message(msg)
-            print(f"✅ Email sent successfully to {to_email} via SSL (465)")
+            print(f"[MAIL SUCCESS] Email sent successfully to {to_email} via SSL (465)")
             return True
         except Exception as ssl_err:
-            print(f"⚠️ Port 465 SSL failed ({ssl_err}), trying Port 587 TLS...")
+            print(f"[MAIL WARN] Port 465 SSL failed ({ssl_err}), trying Port 587 TLS...")
             with smtplib.SMTP(server_host, 587, timeout=10) as server:
                 server.starttls()
                 server.login(username, password)
                 server.send_message(msg)
-            print(f"✅ Email sent successfully to {to_email} via TLS (587)")
+            print(f"[MAIL SUCCESS] Email sent successfully to {to_email} via TLS (587)")
             return True
 
     except Exception as e:
-        print(f"❌ Failed to send email to {to_email}: {str(e)}")
+        print(f"[MAIL ERROR] Failed to send email to {to_email}: {str(e)}")
         return False
 
 

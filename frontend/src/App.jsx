@@ -5,6 +5,7 @@ import OrderSuccess from './pages/OrderSuccess';
 import UserLogin from './pages/UserLogin';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import MyOrders from './pages/MyOrders';
 import { useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children }) {
@@ -26,6 +27,8 @@ export default function App() {
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/order-success" element={<OrderSuccess />} />
       <Route path="/login" element={<UserLogin />} />
+      <Route path="/my-orders" element={<MyOrders />} />
+      <Route path="/profile" element={<MyOrders />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route
         path="/admin"

@@ -30,15 +30,18 @@ export default function Navbar({ search, setSearch }) {
 
         <div className="navbar-actions">
           {user ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#1c1917' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+              <Link to="/my-orders" style={{ fontSize: '13px', fontWeight: '700', color: '#d97706', textDecoration: 'none', background: '#fef3c7', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                📦 My Orders
+              </Link>
+              <Link to="/my-orders" style={{ fontSize: '13px', fontWeight: '600', color: '#1c1917', textDecoration: 'none' }}>
                 👤 {user.name || user.email}
-              </span>
+              </Link>
               <button
                 className="admin-link"
                 onClick={logoutUser}
                 title="Logout"
-                style={{ cursor: 'pointer', border: 'none', background: 'none' }}
+                style={{ cursor: 'pointer', border: 'none', background: 'none', fontSize: '13px', color: '#78716c' }}
               >
                 Logout
               </button>
